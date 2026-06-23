@@ -4,30 +4,43 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.List;
 
 @Entity
+@Table(name = "documents")
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "documents")
+@AllArgsConstructor
 @Builder
 public class Document {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name;
-
-    @Column(name = "access_type")
-    private String accessType;
-
     @Column(name = "original_name")
     private String originalName;
+
+    @Column(name = "object_name")
+    private String objectName;
+
+    @Column(name = "content_type")
+    private String contentType;
+
+    @Column(name = "file_size")
+    private Long fileSize;
 
     @Column(name = "created_at")
     private Instant createdAt;
 
+    @ManyToOne
     @JoinColumn(name = "owner_id")
-    private Long ownerId;
+    private User owner;
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DocumentPermission> permissions;
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ShareLink> shareLinks;
 }
