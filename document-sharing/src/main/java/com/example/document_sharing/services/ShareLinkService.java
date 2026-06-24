@@ -1,5 +1,6 @@
 package com.example.document_sharing.services;
 
+import com.example.document_sharing.dtos.request.ActivityLogDTO;
 import com.example.document_sharing.dtos.response.DownloadResult;
 import com.example.document_sharing.models.Document;
 import com.example.document_sharing.models.DocumentPermission;
@@ -8,9 +9,11 @@ import com.example.document_sharing.models.User;
 import com.example.document_sharing.repositories.DocumentPermissionRepository;
 import com.example.document_sharing.repositories.DocumentRepository;
 import com.example.document_sharing.repositories.ShareLinkRepository;
+import com.example.document_sharing.utils.ActionType;
 import com.example.document_sharing.utils.PermissionType;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +30,7 @@ public class ShareLinkService {
     private final ShareLinkRepository shareLinkRepository;
     private final DocumentRepository documentRepository;
     private final DocumentPermissionRepository documentPermissionRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final UserService userService;
     private final MinioService minioService;
 
@@ -56,6 +60,14 @@ public class ShareLinkService {
                 .expiresAt(Instant.now().plus(30, ChronoUnit.DAYS))
                 .build();
 
+        eventPublisher.publishEvent(new ActivityLogDTO(
+                ActionType.CREATE_LINK,
+                currentUser,
+                null,
+                document.getId(),
+                document.getOriginalName()
+        ));
+
         shareLinkRepository.save(sharedLink);
         return token;
     }
@@ -74,6 +86,14 @@ public class ShareLinkService {
             throw new RuntimeException("Only owner can delete share token");
         }
 
+        eventPublisher.publishEvent(new ActivityLogDTO(
+                ActionType.DELETE_LINK,
+                currentUser,
+                null,
+                document.getId(),
+                document.getOriginalName()
+        ));
+
         if (shareLinkRepository.findByDocumentId(documentId).isPresent()) {
             shareLinkRepository.deleteByDocumentId(documentId);
             return "Share link deleted successfully";
@@ -83,6 +103,9 @@ public class ShareLinkService {
     }
 
     public DownloadResult viewSharedDocument(String token) throws Exception {
+
+        User currentUser = userService.getCurrentUserOrNull();
+
         ShareLink shareLink = shareLinkRepository.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Link không tồn tại"));
 
@@ -93,6 +116,14 @@ public class ShareLinkService {
         Document document = shareLink.getDocument();
 
         InputStream stream = minioService.download(document.getObjectName());
+
+        eventPublisher.publishEvent(new ActivityLogDTO(
+                ActionType.VIEW_VIA_LINK,
+                currentUser,
+                null,
+                document.getId(),
+                document.getOriginalName()
+        ));
 
         return new DownloadResult(
                 stream,

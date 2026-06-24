@@ -1,6 +1,5 @@
 package com.example.document_sharing.services;
 
-import com.example.document_sharing.components.JwtService;
 import com.example.document_sharing.dtos.request.LoginDTO;
 import com.example.document_sharing.dtos.request.RegisterDTO;
 import com.example.document_sharing.dtos.response.AuthenticationResponse;
@@ -94,6 +93,14 @@ public class UserService {
 
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    public User getCurrentUserOrNull() {
+        try {
+            return getCurrentUser();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public User findUserWithEmail(String email){

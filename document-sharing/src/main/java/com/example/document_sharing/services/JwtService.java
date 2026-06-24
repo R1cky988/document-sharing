@@ -1,4 +1,4 @@
-package com.example.document_sharing.components;
+package com.example.document_sharing.services;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

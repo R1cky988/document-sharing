@@ -1,4 +1,4 @@
-package com.example.document_sharing.components;
+package com.example.document_sharing.services;
 
 import com.example.document_sharing.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;

@@ -1,6 +1,6 @@
 package com.example.document_sharing.components;
 
-import com.example.document_sharing.components.JwtService;
+import com.example.document_sharing.services.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
