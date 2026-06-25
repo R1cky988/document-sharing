@@ -2,6 +2,7 @@ package com.example.document_sharing.controllers;
 
 import com.example.document_sharing.dtos.response.DownloadResult;
 import com.example.document_sharing.services.ShareLinkService;
+import com.example.document_sharing.utils.ShareType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -16,9 +17,9 @@ public class ShareLinkController {
     private final ShareLinkService shareLinkService;
 
     @PostMapping("/{documentId}/generate")
-    public ResponseEntity<String> generateLink(@PathVariable Long documentId) {
+    public ResponseEntity<String> generateLink(@PathVariable Long documentId, @RequestParam ShareType shareType) {
         try{
-            return ResponseEntity.ok(shareLinkService.createSharedLink(documentId));
+            return ResponseEntity.ok(shareLinkService.createSharedLink(documentId, shareType));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

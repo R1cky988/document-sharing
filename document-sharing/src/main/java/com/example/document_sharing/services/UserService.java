@@ -1,7 +1,9 @@
 package com.example.document_sharing.services;
 
+import com.example.document_sharing.dtos.request.ChangePasswordDTO;
 import com.example.document_sharing.dtos.request.LoginDTO;
 import com.example.document_sharing.dtos.request.RegisterDTO;
+import com.example.document_sharing.dtos.request.UpdateProfileDTO;
 import com.example.document_sharing.dtos.response.AuthenticationResponse;
 import com.example.document_sharing.models.Role;
 import com.example.document_sharing.models.User;
@@ -14,6 +16,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.InputStream;
 
 
 @Service
@@ -23,6 +28,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MinioService minioService;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
 
@@ -38,11 +44,14 @@ public class UserService {
         Role userRole = roleRepository.findByName("USER")
                 .orElseThrow(() -> new RuntimeException("Role USER not found"));
 
+        String defaultAvatarUrl = "default-avatar.png";
+
         User user = User.builder()
                 .email(email)
                 .password(passwordEncoder.encode(password))
                 .name(registerDTO.getName())
                 .role(userRole)
+                .avatarUrl(defaultAvatarUrl)
                 .build();
 
         userRepository.save(user);
@@ -57,10 +66,10 @@ public class UserService {
                 .build();
     }
 
-    public AuthenticationResponse login(LoginDTO loginDTO) throws DataIntegrityViolationException{
+    public AuthenticationResponse login(LoginDTO loginDTO) throws Exception{
 
         var user = userRepository.findByEmail(loginDTO.getEmail())
-                .orElseThrow();
+                .orElseThrow(()-> new RuntimeException("Email/Password is incorrect"));
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -112,5 +121,69 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
+    public AuthenticationResponse updateProfile(UpdateProfileDTO dto) {
+        User currentUser = getCurrentUser();
+
+        if (!currentUser.getEmail().equals(dto.getEmail())) {
+            if (userRepository.existsByEmail(dto.getEmail())) {
+                throw new RuntimeException("Email already in use");
+            }
+            currentUser.setEmail(dto.getEmail());
+        }
+
+        currentUser.setName(dto.getName());
+        userRepository.save(currentUser);
+
+        var accessToken = jwtService.generateToken(currentUser);
+        var refreshToken = jwtService.generateRefreshToken(currentUser);
+
+        return AuthenticationResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    public void changePassword(ChangePasswordDTO dto) {
+        User currentUser = getCurrentUser();
+
+        if (!passwordEncoder.matches(dto.getOldPassword(), currentUser.getPassword())) {
+            throw new RuntimeException("Wrong old password");
+        }
+
+        currentUser.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(currentUser);
+    }
+
+    public String updateAvatar(MultipartFile file) throws Exception {
+
+        User currentUser = getCurrentUser();
+
+        String oldAvatar = currentUser.getAvatarUrl();
+
+        String newAvatar = minioService.uploadAvatar(file);
+
+        currentUser.setAvatarUrl(newAvatar);
+        userRepository.save(currentUser);
+
+        if (oldAvatar != null &&
+                !oldAvatar.equals("avatars/default-avatar.png")) {
+            minioService.delete(oldAvatar);
+        }
+
+        return newAvatar;
+    }
+
+    public InputStream downloadMyAvatar() throws Exception {
+
+        User currentUser = getCurrentUser();
+
+        String avatarPath = currentUser.getAvatarUrl();
+
+        if (avatarPath == null || avatarPath.isEmpty()) {
+            avatarPath = "avatars/default-avatar.png";
+        }
+
+        return minioService.download(avatarPath);
+    }
 
 }

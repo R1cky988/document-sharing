@@ -42,6 +42,29 @@ public class MinioService {
         return objectName;
     }
 
+    public String uploadAvatar(MultipartFile file) throws Exception {
+
+        String objectName =
+                "avatars/" +
+                        UUID.randomUUID() + "_" +
+                        file.getOriginalFilename();
+
+        minioClient.putObject(
+                PutObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectName)
+                        .stream(
+                                file.getInputStream(),
+                                file.getSize(),
+                                -1
+                        )
+                        .contentType(file.getContentType())
+                        .build()
+        );
+
+        return objectName;
+    }
+
     public InputStream download(String objectName) throws Exception {
 
         return minioClient.getObject(

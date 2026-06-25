@@ -11,6 +11,7 @@ import com.example.document_sharing.repositories.DocumentRepository;
 import com.example.document_sharing.repositories.ShareLinkRepository;
 import com.example.document_sharing.utils.ActionType;
 import com.example.document_sharing.utils.PermissionType;
+import com.example.document_sharing.utils.ShareType;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -34,7 +35,7 @@ public class ShareLinkService {
     private final UserService userService;
     private final MinioService minioService;
 
-    public String createSharedLink(Long documentId) {
+    public String createSharedLink(Long documentId, ShareType shareType) {
         User currentUser = userService.getCurrentUser();
 
         Document document = documentRepository.findById(documentId)
@@ -57,6 +58,7 @@ public class ShareLinkService {
         ShareLink sharedLink = ShareLink.builder()
                 .token(token)
                 .document(document)
+                .shareType(shareType)
                 .expiresAt(Instant.now().plus(30, ChronoUnit.DAYS))
                 .build();
 
@@ -114,6 +116,20 @@ public class ShareLinkService {
         }
 
         Document document = shareLink.getDocument();
+
+        if (shareLink.getShareType() == ShareType.RESTRICTED) {
+            if (currentUser == null) {
+                throw new RuntimeException("Vui lòng đăng nhập để truy cập tài liệu bị giới hạn này");
+            }
+
+            boolean hasPermission = documentPermissionRepository
+                    .findByDocumentIdAndUserId(document.getId(), currentUser.getId())
+                    .isPresent();
+
+            if (!hasPermission) {
+                throw new RuntimeException("Bạn không có quyền truy cập tài liệu này (Restricted Link)");
+            }
+        }
 
         InputStream stream = minioService.download(document.getObjectName());
 

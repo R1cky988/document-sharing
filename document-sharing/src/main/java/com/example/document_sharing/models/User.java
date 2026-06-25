@@ -31,6 +31,9 @@ public class User implements UserDetails {
 
     private String name;
 
+    @Column(name = "avatar_url", columnDefinition = "TEXT")
+    private String avatarUrl;
+
     @ManyToOne
     @JoinColumn(name = "role_id")
     private Role role;

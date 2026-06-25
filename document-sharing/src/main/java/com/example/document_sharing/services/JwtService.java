@@ -55,12 +55,12 @@ public class JwtService {
             long expiration
     ) {
         return Jwts.builder()
-                .claims(extraClaims)                              // Set custom claims trước
-                .subject(userDetails.getUsername())               // Set subject (email)
-                .issuedAt(new Date(System.currentTimeMillis()))   // Thời điểm tạo token
-                .expiration(new Date(System.currentTimeMillis() + expiration)) // Thời điểm hết hạn
-                .signWith(getSignInKey(), Jwts.SIG.HS256)        // Ký với thuật toán HS256
-                .compact();                                       // Build thành string
+                .claims(extraClaims)
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSignInKey(), Jwts.SIG.HS256)
+                .compact();
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
@@ -78,7 +78,7 @@ public class JwtService {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .verifyWith(getSignInKey())    // Verify signature với secret key
+                .verifyWith(getSignInKey())
                 .build()
                 .parseSignedClaims(token)      // Parse JWT
                 .getPayload();                 // Lấy payload (claims)

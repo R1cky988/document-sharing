@@ -1,5 +1,6 @@
 package com.example.document_sharing.models;
 
+import com.example.document_sharing.utils.ShareType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,6 +26,9 @@ public class ShareLink {
     @ManyToOne
     @JoinColumn(name = "document_id")
     private Document document;
+
+    @Enumerated(EnumType.STRING)
+    private ShareType shareType;
 
     private Instant expiresAt;
 }
