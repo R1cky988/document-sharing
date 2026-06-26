@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { slugify } from "../utils/slug";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -9,11 +10,20 @@ import {
   Share2,
   Download,
   Star,
+  StarOff,
+  Trash2
 } from "lucide-react";
 import { UploadModal } from "../components/modals/UploadModal";
 import { ShareModal } from "../components/modals/ShareModal";
-import { FILE_ICONS, PERMISSIONS, FILE_TYPES} from "../constants/fileConstants";
-import { getMyDocuments } from "../services/documentService";
+import { DeleteModal } from "../components/modals/DeleteModal";
+import {
+  FILE_ICONS,
+  PERMISSIONS,
+  FILE_TYPES,
+  getFileType,
+  getFileLabel,
+} from "../constants/fileConstants";
+import { getMyDocuments, formatSize, toggleStar, deleteDocument, removeMyPermission  } from "../services/documentService";
 
 export function DashboardPage({ showToast }) {
   const navigate = useNavigate();
@@ -25,7 +35,8 @@ export function DashboardPage({ showToast }) {
   const [shareDoc, setShareDoc] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [pageData, setPageData] = useState(null); 
-  const PAGE_SIZE = 6;
+  const [deleteDoc, setDeleteDoc] = useState(null);
+  const PAGE_SIZE = 8;
 
     useEffect(() => {
     loadDocuments();
@@ -59,26 +70,67 @@ export function DashboardPage({ showToast }) {
         last: true,
     };
 
+    const handleDeleteClick = (e, doc) => {
+      e.stopPropagation();
+      setDeleteDoc(doc);
+    };
+
+  const handleRemoveFromList = async (doc) => {
+    try {
+      await removeMyPermission(doc.id);
+
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+
+      showToast("Removed from your list");
+      setDeleteDoc(null);
+    } catch (err) {
+      console.error(err);
+      showToast("Failed");
+    }
+  };
+
+  const handleDeletePermanent = async (doc) => {
+    try {
+      await deleteDocument(doc.id);
+
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+
+      showToast("Deleted permanently");
+      setDeleteDoc(null);
+    } catch (err) {
+      console.error(err);
+      showToast("Failed");
+    }
+  };
+
   const handleSearch = useCallback(() => {
     setLoading(true);
     setPage(0);
     setTimeout(() => setLoading(false), 400);
   }, []);
 
-  const formatSize = (bytes) => {
-    if (!bytes) return "0 B";
+  const handleToggleStar = async (e, doc) => {
+      e.stopPropagation();
 
-    if (bytes < 1024)
-        return `${bytes} B`;
+      try {
+          await toggleStar(doc.id);
 
-    if (bytes < 1024 * 1024)
-        return `${(bytes / 1024).toFixed(1)} KB`;
-
-        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    };
+          setDocuments(prev =>
+              prev.map(d =>
+                  d.id === doc.id
+                      ? { ...d, starred: !d.starred }
+                      : d
+              )
+          );
+      } catch (err) {
+          console.error(err);
+      }
+  };
 
   const handleDocumentView = (doc) => {
-    navigate(`/documents/${doc.id}`, { state: { doc } });
+    console.log(doc);
+    
+    navigate(`/documents/${slugify(doc.originalName)}-${doc.id}`);
   };
 
   const handleShare = (doc) => {
@@ -229,9 +281,7 @@ export function DashboardPage({ showToast }) {
                       </tr>
                     ) : (
                       docs.map((doc) => {
-                        const fi =
-                          FILE_ICONS[doc.contentType] ||
-                          FILE_ICONS.OTHER;
+                        const fi = FILE_ICONS[getFileType(doc.contentType)];
                         const perm = PERMISSIONS[doc.currentUserPermission];
                         return (
                           <tr
@@ -264,7 +314,7 @@ export function DashboardPage({ showToast }) {
                               <span
                                 className={`text-xs font-semibold ${fi.color}`}
                               >
-                                {doc.contentType}
+                                {getFileLabel(doc.contentType)}
                               </span>
                             </td>
                             <td className="px-4 py-3.5 text-sm text-slate-500 hidden md:table-cell">
@@ -284,7 +334,22 @@ export function DashboardPage({ showToast }) {
                               </span>
                             </td>
                             <td className="px-5 py-3.5">
-                              <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-end gap-1.5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => handleToggleStar(e, doc)}
+                                    className={`p-1.5 rounded-lg transition-all
+                                        ${
+                                            doc.starred
+                                                ? "text-yellow-400 hover:bg-yellow-400/10"
+                                                : "text-slate-500 hover:text-yellow-400 hover:bg-yellow-400/10"
+                                        }`}
+                                    title={doc.starred ? "Unstar" : "Star"}
+                                >
+                                    <Star
+                                        size={15}
+                                        fill={doc.starred ? "currentColor" : "none"}
+                                    />
+                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -303,6 +368,13 @@ export function DashboardPage({ showToast }) {
                                   title="Download"
                                 >
                                   <Download size={15} />
+                                </button>
+                                <button
+                                  onClick={(e) => handleDeleteClick(e, doc)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={15} />
                                 </button>
                               </div>
                             </td>
@@ -360,10 +432,19 @@ export function DashboardPage({ showToast }) {
           </div>
         </main>
       </div>
+      {deleteDoc && (
+        <DeleteModal
+          doc={deleteDoc}
+          onClose={() => setDeleteDoc(null)}
+          onRemove={handleRemoveFromList}
+          onDelete={handleDeletePermanent}
+        />
+      )}
       {uploadOpen && (
         <UploadModal
           onClose={() => setUploadOpen(false)}
           showToast={showToast}
+          onSuccess={() => loadDocuments()}
         />
       )}
       {shareDoc && (

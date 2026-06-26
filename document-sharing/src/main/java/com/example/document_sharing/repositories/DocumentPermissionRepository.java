@@ -27,6 +27,11 @@ public interface DocumentPermissionRepository extends JpaRepository<DocumentPerm
             Long userId
     );
 
+    Page<DocumentPermission> findByUserIdAndStarredTrue(
+            Long userId,
+            Pageable pageable
+    );
+
     @Modifying
     @Transactional
     @Query("""

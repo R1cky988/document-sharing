@@ -44,7 +44,7 @@ public class UserService {
         Role userRole = roleRepository.findByName("USER")
                 .orElseThrow(() -> new RuntimeException("Role USER not found"));
 
-        String defaultAvatarUrl = "default-avatar.png";
+        String defaultAvatarUrl = "avatars/default-avatar.png";
 
         User user = User.builder()
                 .email(email)

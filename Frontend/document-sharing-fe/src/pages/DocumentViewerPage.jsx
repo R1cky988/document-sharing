@@ -1,24 +1,71 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { slugify } from "../utils/slug";
+import {
+  getDocument,
+  getDocumentContent,
+  formatSize
+} from "../services/documentService";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ArrowLeft,
   Download,
   FileImage,
 } from "lucide-react";
-import { FILE_ICONS, PERMISSIONS } from "../constants/fileConstants";
-import { ALL_DOCS } from "../data/mockData";
+import {
+  FILE_ICONS,
+  PERMISSIONS,
+  getFileType,
+  getFileLabel,
+} from "../constants/fileConstants";
 
 export function DocumentViewerPage() {
-  const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { slug } = useParams();
+  const id = slug.split("-").pop();
+  const [doc, setDoc] = useState(null);
+  const [fileUrl, setFileUrl] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [markdown, setMarkdown] = useState("");
 
-  // Try to get doc from location state first, then from ALL_DOCS
-  const doc = location.state?.doc || ALL_DOCS.find((d) => d.id === parseInt(id));
+  useEffect(() => {
+    const loadDocument = async () => {
+      try {
+        setLoading(true);
 
+        const metadata = await getDocument(id);
+        setDoc(metadata);
+
+        const { blob } = await getDocumentContent(id);
+        if (metadata.contentType === "text/markdown") {
+            const text = await blob.text();
+            setMarkdown(text);
+        } else {
+            setFileUrl(URL.createObjectURL(blob));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDocument();
+  }, [id]);
+  if (loading) {
+      return (
+          <div className="flex justify-center items-center h-screen">
+              Loading...
+          </div>
+      );
+  }
   if (!doc) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-0 bg-slate-950">
         <p className="text-slate-400">Document not found</p>
+        
         <button
           onClick={() => navigate("/dashboard")}
           className="mt-4 text-violet-400 hover:text-violet-300"
@@ -29,93 +76,75 @@ export function DocumentViewerPage() {
     );
   }
 
-  const fi = ICONS[doc.contentType] || ICONS.OTHER;
-  const perm = PERMISSIONS[doc.permission];
+  const fi = FILE_ICONS[getFileType(doc.contentType)];
+  const perm = PERMISSIONS[doc.currentUserPermission];
 
   const renderContent = () => {
-    if (doc.contentType === "IMAGE") {
-      return (
-        <div className="flex items-center justify-center h-96 rounded-xl bg-slate-800/40 border border-slate-700/40">
-          <div className="text-center">
-            <FileImage size={48} className="text-sky-400/40 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm">
-              Image preview would render here
-            </p>
-            <p className="text-slate-600 text-xs mt-1">{doc.name}</p>
-          </div>
-        </div>
-      );
-    }
-    if (doc.contentType === "EXCEL") {
-      return (
-        <div className="rounded-xl border border-slate-700/40 overflow-hidden">
-          <div className="bg-slate-800/40 px-4 py-2 border-b border-slate-700/40 flex gap-4">
-            {["Sheet1", "Sheet2", "Sheet3"].map((s, i) => (
-              <button
-                key={s}
-                className={`text-xs px-2 py-1 rounded ${
-                  i === 0
-                    ? "bg-emerald-500/20 text-emerald-300"
-                    : "text-slate-500 hover:text-slate-400"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-slate-800/60">
-                {["A", "B", "C", "D", "E"].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2 text-slate-500 font-medium text-center border-r border-slate-700/40 last:border-r-0"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[...Array(6)].map((_, r) => (
-                <tr key={r} className="border-t border-slate-700/40 hover:bg-slate-800/20">
-                  {[...Array(5)].map((_, c) => (
-                    <td
-                      key={c}
-                      className="px-4 py-2 text-slate-400 border-r border-slate-700/40 last:border-r-0"
-                    >
-                      {r === 0
-                        ? ["Revenue", "Q1", "Q2", "Q3", "Q4"][c]
-                        : r === 1
-                        ? [
-                            "Total",
-                            "$42k",
-                            "$55k",
-                            "$61k",
-                            "$78k",
-                          ][c]
-                        : "—"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    }
+    if (doc.contentType === "text/markdown") {
     return (
-      <div className="bg-slate-800/20 rounded-xl border border-slate-700/40 p-8 space-y-4">
-        <div className="h-3 bg-slate-700/50 rounded-full w-3/4" />
-        <div className="h-3 bg-slate-700/50 rounded-full" />
-        <div className="h-3 bg-slate-700/50 rounded-full w-5/6" />
-        <div className="h-3 bg-slate-700/30 rounded-full w-2/3" />
-        <div className="mt-6 h-3 bg-slate-700/50 rounded-full w-4/5" />
-        <div className="h-3 bg-slate-700/50 rounded-full w-full" />
-        <div className="h-3 bg-slate-700/50 rounded-full w-3/4" />
-        <p className="text-slate-500 text-sm mt-6 pt-4 border-t border-slate-700/40 italic">
-          {doc.content}
+        <article className="text-white whitespace-pre-wrap">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {markdown}
+            </ReactMarkdown>
+        </article>
+    );
+  }
+    if (!fileUrl) {
+      return (
+        <div className="flex text-white justify-center items-center h-96">
+          Loading preview...
+        </div>
+      );
+    }
+    // MARKDOWN
+    
+    // IMAGE
+    if (doc.contentType.startsWith("image/")) {
+      return (
+        <img
+          src={fileUrl}
+          alt={doc.originalName}
+          className="max-h-[700px] mx-auto rounded-xl"
+        />
+      );
+    }
+
+    // PDF
+    if (doc.contentType === "application/pdf") {
+      return (
+        <iframe
+          src={fileUrl}
+          title={doc.originalName}
+          className="w-full h-[800px] rounded-xl"
+        />
+      );
+    }
+
+    // TXT
+    if (doc.contentType === "text/plain") {
+      return (
+        <iframe
+          src={fileUrl}
+          title={doc.originalName}
+          className="w-full h-[700px] bg-white"
+        />
+      );
+    }
+
+    // Word / Excel / PowerPoint
+    return (
+      <div className="text-center py-20">
+        <p className="text-slate-400">
+          Preview is not supported.
         </p>
+
+        <a
+          href={fileUrl}
+          download={doc.originalName}
+          className="mt-4 inline-flex px-4 py-2 bg-violet-600 rounded-xl text-white"
+        >
+          Download
+        </a>
       </div>
     );
   };
@@ -134,7 +163,7 @@ export function DocumentViewerPage() {
           <fi.icon size={14} className={fi.color} />
         </div>
         <span className="text-slate-200 font-medium text-sm truncate">
-          {doc.name}
+          {doc.originalName}
         </span>
         <div className="ml-auto flex items-center gap-3">
           <span
@@ -153,10 +182,22 @@ export function DocumentViewerPage() {
           {/* Metadata */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {[
-              { label: "File Name", value: doc.name },
-              { label: "Type", value: doc.contentType },
-              { label: "Size", value: doc.size },
-              { label: "Created", value: doc.createdAt },
+              {
+                label: "File Name",
+                value: doc.originalName,
+              },
+              {
+                label: "Type",
+                value: doc.contentType,
+              },
+              {
+                label: "Size",
+                value: formatSize(doc.fileSize),
+              },
+              {
+                label: "Created",
+                value: new Date(doc.createdAt).toLocaleString(),
+              },
             ].map(({ label, value }) => (
               <div
                 key={label}

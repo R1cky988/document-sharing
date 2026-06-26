@@ -25,4 +25,7 @@ public class DocumentPermission {
     private User user;
 
     private PermissionType permissionType;
+
+    @Column(nullable = false)
+    private boolean starred = false;
 }

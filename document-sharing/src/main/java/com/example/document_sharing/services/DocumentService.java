@@ -3,6 +3,7 @@ package com.example.document_sharing.services;
 import com.example.document_sharing.dtos.request.ActivityLogDTO;
 import com.example.document_sharing.dtos.response.DocumentResponse;
 import com.example.document_sharing.dtos.response.DownloadResult;
+import com.example.document_sharing.dtos.response.PermissionResponse;
 import com.example.document_sharing.models.Document;
 import com.example.document_sharing.models.DocumentPermission;
 import com.example.document_sharing.models.User;
@@ -82,9 +83,34 @@ public class DocumentService {
                     .ownerId(document.getOwner().getId())
                     .ownerName(document.getOwner().getName())
                     .currentUserPermission(permission.getPermissionType())
+                    .isStarred(permission.isStarred())
                     .build();
         });
     }
+
+    public DocumentResponse getDocumentById(Long documentId){
+        User currentUser = userService.getCurrentUser();
+
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(()-> new RuntimeException("Cannot find document"));
+
+        DocumentPermission permissionResponse = documentPermissionRepository.findByDocumentIdAndUserId(
+                documentId, currentUser.getId()
+        ).orElseThrow(()-> new RuntimeException("Access denied"));
+
+        return DocumentResponse.builder()
+                .id(documentId)
+                .originalName(document.getOriginalName())
+                .ownerName(document.getOwner().getName())
+                .contentType(document.getContentType())
+                .fileSize(document.getFileSize())
+                .createdAt(document.getCreatedAt())
+                .currentUserPermission(permissionResponse.getPermissionType())
+                .isStarred(permissionResponse.isStarred())
+                .build();
+    }
+
+
 
     public DownloadResult downloadDocument(
             Long documentId
@@ -154,7 +180,7 @@ public class DocumentService {
         );
     }
 
-    public String deleteDocument(Long documentId) throws Exception {
+    public void deleteDocument(Long documentId) throws Exception {
 
         User currentUser = userService.getCurrentUser();
 
@@ -177,8 +203,6 @@ public class DocumentService {
             );
         }
 
-
-
         minioService.delete(
                 document.getObjectName()
         );
@@ -192,8 +216,16 @@ public class DocumentService {
         ));
 
         documentRepository.delete(document);
+    }
 
-        return "Document deleted successfully";
+    public void removeMyPermission(Long documentId) {
+        User user = userService.getCurrentUser();
+
+        DocumentPermission permission =
+                documentPermissionRepository.findByDocumentIdAndUserId(documentId, user.getId())
+                        .orElseThrow(() -> new RuntimeException("No permission found"));
+
+        documentPermissionRepository.delete(permission);
     }
 
     public Page<DocumentResponse> search(String keyword, String contentType, Pageable pageable) {
@@ -211,7 +243,7 @@ public class DocumentService {
                     .filter(p -> p.getUser().getId().equals(currentUser.getId()))
                     .map(DocumentPermission::getPermissionType)
                     .findFirst()
-                    .orElse(PermissionType.READER);
+                    .orElse(PermissionType.VIEW);
 
             return DocumentResponse.builder()
                     .id(document.getId())
@@ -226,6 +258,44 @@ public class DocumentService {
         });
     }
 
+    public void starDocument(Long documentId){
+        User user = userService.getCurrentUser();
+
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(()-> new RuntimeException("Cannot find Document"));
+
+        DocumentPermission permission = documentPermissionRepository.findByDocumentIdAndUserId(
+                documentId, user.getId()
+        ).orElseThrow(() -> new RuntimeException("Access denied"));
+
+        permission.setStarred(!permission.isStarred());
+        documentPermissionRepository.save(permission);
+    }
+
+    public Page<DocumentResponse> getStarredDocuments(Pageable pageable) {
+        User currentUser = userService.getCurrentUser();
+
+        Page<DocumentPermission> permissions =
+                documentPermissionRepository.findByUserIdAndStarredTrue(
+                        currentUser.getId(),
+                        pageable
+                );
+
+        return permissions.map(permission -> {
+            Document document = permission.getDocument();
+
+            return DocumentResponse.builder()
+                    .id(document.getId())
+                    .originalName(document.getOriginalName())
+                    .contentType(document.getContentType())
+                    .fileSize(document.getFileSize())
+                    .createdAt(document.getCreatedAt())
+                    .ownerName(document.getOwner().getName())
+                    .currentUserPermission(permission.getPermissionType())
+                    .isStarred(permission.isStarred())
+                    .build();
+        });
+    }
 
     public DocumentResponse toResponse(Document document) {
         return DocumentResponse.builder()
@@ -239,4 +309,5 @@ public class DocumentService {
                 .currentUserPermission(PermissionType.OWNER)
                 .build();
     }
+
 }

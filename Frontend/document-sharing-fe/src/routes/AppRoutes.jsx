@@ -13,7 +13,6 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Toast } from "../components/common/Toast";
 import { Menu } from "lucide-react";
-import { MOCK_USER } from "../constants/fileConstants";
 
 export function AppRoutes() {
   const { authed, user, logout, loading} = useContext(AuthContext);
@@ -128,7 +127,7 @@ export function AppRoutes() {
             }
           />
           <Route
-            path="/documents/:id"
+            path="/documents/:slug"
             element={
               <ProtectedRoute>
                 <DocumentViewerPage />

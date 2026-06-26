@@ -74,7 +74,7 @@ public class AuthorizationService {
                 DocumentPermission.builder()
                         .document(document)
                         .user(targetUser)
-                        .permissionType(PermissionType.READER)
+                        .permissionType(PermissionType.VIEW)
                         .build();
 
         documentPermissionRepository.save(permission);

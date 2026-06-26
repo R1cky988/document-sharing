@@ -107,14 +107,20 @@ public class DocumentController {
         }
     }
 
+    @GetMapping("{id}")
+    public ResponseEntity<DocumentResponse> getDocument(
+            @PathVariable Long id
+    ){
+        return ResponseEntity.ok(documentService.getDocumentById(id));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteDocument(
             @PathVariable Long id
     ) throws Exception {
         try{
-            return ResponseEntity.ok(
-                    documentService.deleteDocument(id)
-            );
+            documentService.deleteDocument(id);
+            return ResponseEntity.noContent().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -136,5 +142,28 @@ public class DocumentController {
 
         Page<DocumentResponse> result = documentService.search(keyword, contentType, pageable);
         return ResponseEntity.ok(new PagedModel<>(result));
+    }
+
+    @PostMapping("/{id}/toggle-star")
+    public ResponseEntity<?> starDocument(
+            @PathVariable Long id
+    ){
+        documentService.starDocument(id);
+        return ResponseEntity.ok("Starred");
+    }
+
+    @GetMapping("/starred")
+    public ResponseEntity<Page<DocumentResponse>> getStarredDocuments(
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        return ResponseEntity.ok(
+                documentService.getStarredDocuments(pageable)
+        );
+    }
+
+    @DeleteMapping("/{id}/permission")
+    public ResponseEntity<?> removeMyPermission(@PathVariable Long id) {
+        documentService.removeMyPermission(id);
+        return ResponseEntity.ok().build();
     }
 }

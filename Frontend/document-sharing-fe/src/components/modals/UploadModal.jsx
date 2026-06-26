@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { uploadDocument } from "../../services/documentService";
 import {
   Upload,
   X,
@@ -9,7 +10,7 @@ import {
   Check,
 } from "lucide-react";
 
-export function UploadModal({ onClose, showToast }) {
+export function UploadModal({ onClose, showToast, onSuccess }) {
   const [dragging, setDragging] = useState(false);
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -58,28 +59,35 @@ export function UploadModal({ onClose, showToast }) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const startUpload = () => {
+  const startUpload = async () => {
     if (!files.length) return;
+
     setUploading(true);
-    files.forEach((f, idx) => {
-      const interval = setInterval(() => {
+
+    try {
+      for (const f of files) {
+        await uploadDocument(f.file);
+
         setFiles((prev) =>
-          prev.map((p) => {
-            if (p.id !== f.id) return p;
-            const next = Math.min(p.progress + Math.floor(Math.random() * 18 + 8), 100);
-            return { ...p, progress: next, done: next === 100 };
-          })
+          prev.map((p) =>
+            p.id === f.id
+              ? { ...p, progress: 100, done: true }
+              : p
+          )
         );
-      }, 120 + idx * 40);
-      setTimeout(() => {
-        clearInterval(interval);
-      }, 2200 + idx * 300);
-    });
-    setTimeout(() => {
-      setUploading(false);
-      showToast(`${files.length} file${files.length > 1 ? "s" : ""} uploaded!`);
+      }
+
+      showToast(`${files.length} file(s) uploaded!`);
+      if (onSuccess) {
+        onSuccess();
+      }
       onClose();
-    }, 2600 + files.length * 300);
+    } catch (err) {
+      console.error(err);
+      showToast("Upload failed!");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (

@@ -109,19 +109,7 @@ export function ShareModal({ doc, onClose, showToast }) {
                 placeholder="Enter email or username…"
                 className="flex-1 bg-slate-800/60 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500/50 transition-all"
               />
-              <div className="relative">
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="appearance-none bg-slate-800/60 border border-slate-700/50 rounded-xl pl-3 pr-7 py-2 text-sm text-slate-300 focus:outline-none focus:border-violet-500/50 transition-all"
-                >
-                  <option value="VIEW">View</option>
-                </select>
-                <ChevronDown
-                  size={12}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-                />
-              </div>
+             
               <button
                 onClick={addInvitee}
                 disabled={!email || inviting}

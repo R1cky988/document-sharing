@@ -27,4 +27,6 @@ public class DocumentResponse {
     private String ownerName;
 
     private PermissionType currentUserPermission;
+
+    private boolean isStarred;
 }

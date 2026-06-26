@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 
 export function RecentPage() {
   const navigate = useNavigate();
-  // Show most recent 10 docs
   const recentDocs = ALL_DOCS.slice(0, 10);
 
   return (
