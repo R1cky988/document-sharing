@@ -84,7 +84,7 @@ export function UploadModal({ onClose, showToast, onSuccess }) {
       onClose();
     } catch (err) {
       console.error(err);
-      showToast("Upload failed!");
+      showToast("Upload failed!", "error");
     } finally {
       setUploading(false);
     }

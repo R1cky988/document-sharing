@@ -13,10 +13,12 @@ import {
 } from "lucide-react";
 import { ConfirmDialog } from "../components/modals/ConfirmDialog";
 import { AvatarCropModal } from "../components/modals/AvatarCropModal";
+import { uploadAvatar, updateProfile, changePassword, deleteAccount } from "../services/userService"; 
 
 
 export function AccountSettingsPage({ user, showToast }) {
-  const { avatarUrl } = useContext(AuthContext);
+  const { avatarUrl, updateUserState, setUser, logout } = useContext(AuthContext); 
+  
   const [avatarImage, setAvatarImage] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [form, setForm] = useState({
@@ -35,6 +37,7 @@ export function AccountSettingsPage({ user, showToast }) {
   const [saving, setSaving] = useState(false);
   const [savingPass, setSavingPass] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   const handle = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -57,12 +60,11 @@ export function AccountSettingsPage({ user, showToast }) {
     return e;
   };
 
-  // Profile save flow
   const requestSaveProfile = () => {
     setConfirmDialog({
       key: "profile",
       title: "Save profile changes?",
-      message: "Your name, email, and bio will be updated.",
+      message: "Your name and email will be updated.",
       detail: `Name: ${form.name} · Email: ${form.email}`,
       confirmLabel: "Yes, save changes",
       confirmStyle: "violet",
@@ -70,16 +72,54 @@ export function AccountSettingsPage({ user, showToast }) {
     });
   };
 
-  const confirmSaveProfile = () => {
+  const confirmSaveProfile = async () => {
     setConfirmDialog(null);
     setSaving(true);
-    setTimeout(() => {
+    try {
+      const isEmailChanged = form.email.trim().toLowerCase() !== user.email.trim().toLowerCase();
+
+      const updatedUser = await updateProfile({
+        name: form.name,
+        email: form.email,
+      });
+
+      if (isEmailChanged) {
+        showToast("Email updated! Please log in again with your new email.", "success");
+        
+        setTimeout(() => {
+          if (logout) {
+            logout(); 
+          } else {
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("refreshToken");
+            localStorage.removeItem("user");
+            window.location.href = "/login";
+          }
+        }, 3000); 
+
+      } else {
+        if (setUser) {
+          setUser(updatedUser);
+        }
+        showToast("Profile updated successfully!", "success");
+        setSaving(false);
+      }
+
+    } catch (error) {
+      console.error("Lỗi cập nhật profile:", error);
+      showToast(
+        error.response?.data || "Failed to update profile. Please try again.",
+        "error"
+      );
       setSaving(false);
-      showToast("Profile updated!");
-    }, 700);
+    } finally {
+      const isEmailChanged = form.email.trim().toLowerCase() !== user.email.trim().toLowerCase();
+      if (!isEmailChanged) {
+        setSaving(false);
+      }
+    }
   };
 
-  // Password update flow
   const requestUpdatePassword = () => {
     const e = validatePassword();
     if (Object.keys(e).length > 0) {
@@ -97,18 +137,30 @@ export function AccountSettingsPage({ user, showToast }) {
     });
   };
 
-  const confirmUpdatePassword = () => {
+  const confirmUpdatePassword = async () => {
     setConfirmDialog(null);
     setSavingPass(true);
-    setTimeout(() => {
-      setSavingPass(false);
+
+    try {
+      await changePassword({
+        current: passForm.current,
+        next: passForm.next,
+      });
+
       setPassForm({ current: "", next: "", confirm: "" });
       setPassErrors({});
-      showToast("Password changed successfully!");
-    }, 700);
+      showToast("Password changed successfully!", "success");
+    } catch (error) {
+      console.error("Lỗi khi đổi mật khẩu:", error);
+      showToast(
+        error.response?.data || "Failed to change password. Please try again.",
+        "error"
+      );
+    } finally {
+      setSavingPass(false);
+    }
   };
 
-  // Delete account flow
   const requestDeleteAccount = () => {
     setConfirmDialog({
       key: "delete",
@@ -121,9 +173,54 @@ export function AccountSettingsPage({ user, showToast }) {
     });
   };
 
-  const confirmDeleteAccount = () => {
+  const confirmDeleteAccount = async () => {
     setConfirmDialog(null);
-    showToast("Account deleted.", "error");
+    
+    try {
+      await deleteAccount();
+      
+      showToast("Your account has been permanently deleted.", "success");
+
+      setTimeout(() => {
+        if (logout) {
+          logout(); 
+        } else {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+        }
+      }, 2500);
+
+    } catch (error) {
+      console.error("Lỗi khi xóa tài khoản:", error);
+      showToast(
+        error.response?.data || "Failed to delete account. Please try again.",
+        "error"
+      );
+    }
+  };
+
+  const handleAvatarSave = async (croppedBase64Image) => {
+    try {
+      setUploading(true);
+      setShowAvatarModal(false); 
+
+      const newAvatarUrl = await uploadAvatar(croppedBase64Image);
+      
+      setAvatarImage(croppedBase64Image); 
+      
+      if (setUser) {
+        setUser({ ...user, avatar: newAvatarUrl });
+      }
+      
+      showToast("Avatar updated successfully!", "success");
+    } catch (error) {
+      console.error("Lỗi khi upload ảnh đại diện:", error);
+      showToast(error.response?.data || "Failed to upload avatar.", "error");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleConfirm = () => {
@@ -132,12 +229,6 @@ export function AccountSettingsPage({ user, showToast }) {
       confirmUpdatePassword();
     else if (confirmDialog?.key === "delete")
       confirmDeleteAccount();
-  };
-
-  const handleAvatarSave = (croppedImage) => {
-    setAvatarImage(croppedImage);
-    setShowAvatarModal(false);
-    showToast("Avatar updated successfully!");
   };
 
   const passwordsMatch =
@@ -167,21 +258,21 @@ export function AccountSettingsPage({ user, showToast }) {
             <div className="flex items-center gap-5 mb-6">
               <div className="relative">
                 {avatarImage ? (
-                    <img
-                        src={avatarImage}
-                        alt="avatar"
-                        className="w-16 h-16 rounded-2xl object-cover"
-                    />
-                    ) : avatarUrl ? (
-                    <img
-                        src={avatarUrl}
-                        alt="avatar"
-                        className="w-16 h-16 rounded-2xl object-cover"
-                    />
-                    ) : (
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-sky-500 flex items-center justify-center text-white text-xl font-bold">
-                        {user?.name?.charAt(0)?.toUpperCase()}
-                    </div>
+                  <img
+                    src={avatarImage}
+                    alt="avatar"
+                    className="w-16 h-16 rounded-2xl object-cover"
+                  />
+                ) : avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="avatar"
+                    className="w-16 h-16 rounded-2xl object-cover"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-sky-500 flex items-center justify-center text-white text-xl font-bold">
+                    {user?.name?.charAt(0)?.toUpperCase()}
+                  </div>
                 )}
               </div>
               <div>
@@ -193,9 +284,10 @@ export function AccountSettingsPage({ user, showToast }) {
                 </p>
                 <button
                   onClick={() => setShowAvatarModal(true)}
-                  className="mt-2 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                  disabled={uploading}
+                  className="mt-2 text-xs text-violet-400 hover:text-violet-300 transition-colors disabled:opacity-50"
                 >
-                  Change avatar
+                  {uploading ? "Uploading..." : "Change avatar"}
                 </button>
               </div>
             </div>

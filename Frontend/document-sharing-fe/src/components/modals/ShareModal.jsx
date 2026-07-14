@@ -43,7 +43,7 @@ export function ShareModal({ doc, onClose, showToast }) {
           setInvitees(viewersOnly);
         }
       } catch (error) {
-        showToast("Failed to load active viewers.");
+        showToast("Failed to load active viewers.", "error");
         console.error("Error fetching permissions:", error);
       } finally {
         setLoadingPermissions(false);
@@ -56,18 +56,16 @@ export function ShareModal({ doc, onClose, showToast }) {
   const generateLink = async () => {
     try {
       setGenerating(true);
+      
+      const token = await generateShareLink(doc.id, shareType);
 
-      const linkOrToken = await generateShareLink(doc.id, shareType);
-      const fullUrl = linkOrToken.startsWith("http")
-        ? linkOrToken
-        : `http://localhost:8080/api/v1/shared/view/${linkOrToken}`;
+      const frontendShareUrl = `${window.location.origin}/shared/view/${token}`;
 
-      setGeneratedLink(fullUrl);
-      showToast("Secure link generated successfully!");
+      setGeneratedLink(frontendShareUrl);
+      showToast("Secure link generated successfully!", "success");
     } catch (error) {
-      console.error("Lỗi thực thi tại Client:", error);
-      const errorMsg = error.response?.data || "Failed to generate link";
-      showToast(errorMsg);
+      console.error("Lỗi tạo link chia sẻ:", error);
+      showToast(error.response?.data || "Failed to generate link", "error");
     } finally {
       setGenerating(false);
     }
@@ -103,7 +101,7 @@ export function ShareModal({ doc, onClose, showToast }) {
 
     } catch (error) {
       const errorMsg = error.response?.data || "Failed to share document";
-      showToast(errorMsg);
+      showToast(errorMsg, "error");
     } finally {
       setInviting(false);
     }
@@ -124,7 +122,7 @@ export function ShareModal({ doc, onClose, showToast }) {
       showToast("Đã thu hồi quyền truy cập thành công!");
     } catch (error) {
       console.error("Error revoking permission:", error);
-      showToast(error.response?.data || "Không thể thu hồi quyền truy cập");
+      showToast(error.response?.data || "Không thể thu hồi quyền truy cập", "error");
     }
   };
   const fi = FILE_ICONS[doc.contentType] || FILE_ICONS.OTHER;

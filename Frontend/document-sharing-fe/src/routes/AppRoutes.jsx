@@ -49,6 +49,7 @@ export function AppRoutes() {
   if (!authed) {
     return (
       <Routes>
+        <Route path="/shared/view/:token" element={<DocumentViewerPage isPublicShare={true} />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

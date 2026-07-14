@@ -101,6 +101,28 @@ export const downloadDocument = async (docId) => {
   return response; 
 };
 
+export const getSharedDocumentContent = async (token) => {
+  const response = await api.get(`/shared/view/${token}`, {
+    responseType: "blob", 
+  });
+
+  const contentType = response.headers["content-type"];
+
+  let fileName = "shared_document";
+  const disposition = response.headers["content-disposition"];
+  if (disposition && disposition.includes("filename=")) {
+    fileName = disposition
+      .split("filename=")[1]
+      .replace(/['"]/g, ""); 
+  }
+
+  return {
+    blob: response.data,   
+    contentType,         
+    fileName,              
+  };
+};
+
 export const formatSize = (bytes) => {
   if (!bytes) return "0 B";
 

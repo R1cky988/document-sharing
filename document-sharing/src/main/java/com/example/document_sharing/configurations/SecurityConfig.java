@@ -41,7 +41,7 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/users/**").permitAll()
-                        .requestMatchers("/api/v1/shared/**").permitAll()
+                        .requestMatchers("/api/v1/shared/view/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->

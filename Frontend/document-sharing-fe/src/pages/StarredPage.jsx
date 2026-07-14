@@ -61,7 +61,7 @@ export function StarredPage({ showToast }) {
       setDeleteDoc(null);
     } catch (err) {
       console.error(err);
-      showToast("Failed");
+      showToast("Failed", "error");
     }
   };
 
@@ -107,7 +107,7 @@ export function StarredPage({ showToast }) {
       setDeleteDoc(null);
     } catch (err) {
       console.error(err);
-      showToast("Failed");
+      showToast("Failed", "error");
     }
   };
 
@@ -124,7 +124,7 @@ export function StarredPage({ showToast }) {
       showToast?.("Removed from your list");
     } catch (err) {
       console.error(err);
-      showToast?.("Failed to remove access");
+      showToast?.("Failed to remove access", "error");
     }
   };
 

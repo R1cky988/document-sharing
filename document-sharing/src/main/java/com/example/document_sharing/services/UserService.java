@@ -117,8 +117,10 @@ public class UserService {
                 .orElseThrow(()-> new DataIntegrityViolationException("Cannot find user"));
     }
 
-    public void deleteUser(long id) {
-        userRepository.deleteById(id);
+    public void deleteUser() {
+        User currentUser = getCurrentUser();
+
+        userRepository.deleteById(currentUser.getId());
     }
 
     public AuthenticationResponse updateProfile(UpdateProfileDTO dto) {

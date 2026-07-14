@@ -117,7 +117,7 @@ export function DashboardPage({ showToast }) {
       setDeleteDoc(null);
     } catch (err) {
       console.error(err);
-      showToast("Failed");
+      showToast("Failed", "error");
     }
   };
 
@@ -131,7 +131,7 @@ export function DashboardPage({ showToast }) {
       setDeleteDoc(null);
     } catch (err) {
       console.error(err);
-      showToast("Failed");
+      showToast("Failed", "error");
     }
   };
 
