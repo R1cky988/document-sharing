@@ -108,10 +108,37 @@ public class AuthorizationService {
         return documentPermissionRepository.findByDocumentId(documentId, pageable)
                 .map(dp -> PermissionResponse.builder()
                         .userId(dp.getUser().getId())
+                        .email(dp.getUser().getEmail())
                         .userName(dp.getUser().getName())
                         .documentId(document.getId())
                         .permission(dp.getPermissionType())
                         .build());
+    }
+
+    public void deletePermission(Long documentId, String email){
+        User user = userService.getCurrentUser();
+
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(()-> new RuntimeException("Cannot find document"));
+
+        DocumentPermission permission = documentPermissionRepository.findByDocumentIdAndUserId(
+                documentId,
+                user.getId()
+        ).orElseThrow(()-> new RuntimeException("Access denied"));
+
+        if(permission.getPermissionType() != PermissionType.OWNER){
+            throw new RuntimeException("Only owner can do this action");
+        }
+
+        User targetUser = userService.findUserWithEmail(email);
+
+        DocumentPermission targetPermission = documentPermissionRepository.findByDocumentIdAndUserId(
+                documentId,
+                targetUser.getId()
+        ).orElseThrow(() -> new RuntimeException("This user does not have any permission on this document"));
+
+        documentPermissionRepository.delete(targetPermission);
+
     }
 
 }

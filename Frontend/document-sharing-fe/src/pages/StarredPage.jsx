@@ -8,7 +8,7 @@ import {
   getFileType, 
   getFileLabel 
 } from "../constants/fileConstants";
-import { getStarredDocuments, formatSize, toggleStar, deleteDocument, removeMyPermission  } from "../services/documentService";
+import { getStarredDocuments, formatSize, toggleStar, deleteDocument, removeMyPermission, downloadDocument  } from "../services/documentService";
 import { slugify } from "../utils/slug";
 import { ShareModal } from "../components/modals/ShareModal";
 import { DeleteModal } from "../components/modals/DeleteModal";
@@ -47,6 +47,10 @@ export function StarredPage({ showToast }) {
       setDeleteDoc(doc);
     };
 
+  const handleShare = (doc) => {
+    setShareDoc(doc);
+  };
+
   const handleRemoveFromList = async (doc) => {
     try {
       await removeMyPermission(doc.id);
@@ -58,6 +62,38 @@ export function StarredPage({ showToast }) {
     } catch (err) {
       console.error(err);
       showToast("Failed");
+    }
+  };
+
+
+  const handleDownload = async (e, docId, fallbackFileName = "download") => {
+    e.stopPropagation(); 
+    try {
+      const response = await downloadDocument(docId);
+      
+      const blob = new Blob([response.data], { type: response.headers["content-type"] });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      
+      let fileName = fallbackFileName;
+      const disposition = response.headers["content-disposition"];
+      if (disposition && disposition.includes("filename=")) {
+        fileName = disposition
+          .split("filename=")[1]
+          .replace(/['"]/g, ""); 
+      }
+
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName; 
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Không thể tải tập tin xuống.");
     }
   };
 
@@ -74,6 +110,8 @@ export function StarredPage({ showToast }) {
       showToast("Failed");
     }
   };
+
+  
 
   const handleRemoveAccess = async (e, doc) => {
     e.stopPropagation();
@@ -94,7 +132,6 @@ export function StarredPage({ showToast }) {
     e.stopPropagation();
     try {
       await toggleStar(doc.id);
-      // Vì đây là trang Starred, khi bỏ star thông thường file sẽ biến mất khỏi danh sách
       setDocuments(prev => prev.filter(d => d.id !== doc.id));
       if (showToast) showToast("Removed from starred");
     } catch (err) {
@@ -236,7 +273,7 @@ export function StarredPage({ showToast }) {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setShareDoc(doc);
+                                    handleShare(doc);
                                   }}
                                   className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-400/10 transition-all"
                                   title="Share"
@@ -244,7 +281,7 @@ export function StarredPage({ showToast }) {
                                   <Share2 size={15} />
                                 </button>
                                 <button
-                                  onClick={(e) => e.stopPropagation()}
+                                  onClick={(e) => handleDownload(e, doc.id, doc.name)}
                                   className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all"
                                   title="Download"
                                 >

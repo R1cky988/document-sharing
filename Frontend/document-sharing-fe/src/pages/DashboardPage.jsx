@@ -23,7 +23,7 @@ import {
   getFileType,
   getFileLabel,
 } from "../constants/fileConstants";
-import { getMyDocuments, formatSize, toggleStar, deleteDocument, removeMyPermission  } from "../services/documentService";
+import { getMyDocuments, formatSize, toggleStar, deleteDocument, removeMyPermission, downloadDocument  } from "../services/documentService";
 
 export function DashboardPage({ showToast }) {
   const navigate = useNavigate();
@@ -74,6 +74,38 @@ export function DashboardPage({ showToast }) {
       e.stopPropagation();
       setDeleteDoc(doc);
     };
+    
+  const handleDownload = async (e, docId, fallbackFileName = "download") => {
+    e.stopPropagation(); 
+    
+    try {
+      const response = await downloadDocument(docId);
+      
+      const blob = new Blob([response.data], { type: response.headers["content-type"] });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      
+      let fileName = fallbackFileName;
+      const disposition = response.headers["content-disposition"];
+      if (disposition && disposition.includes("filename=")) {
+        fileName = disposition
+          .split("filename=")[1]
+          .replace(/['"]/g, ""); 
+      }
+
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Không thể tải tập tin xuống.");
+    }
+  };
 
   const handleRemoveFromList = async (doc) => {
     try {
@@ -189,43 +221,6 @@ export function DashboardPage({ showToast }) {
 
         {/* Content */}
         <main className="flex-1 overflow-auto p-6 bg-slate-950">
-          {/* Stats */}
-          {/* <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {[
-              {
-                label: "Total Files",
-                value: meta?.totalElements || 0,
-                color: "text-violet-400",
-                bg: "bg-violet-500/10 border-violet-500/20",
-              },
-              {
-                label: "Owned by Me",
-                value: 0,
-                color: "text-sky-400",
-                bg: "bg-sky-500/10 border-sky-500/20",
-              },
-              {
-                label: "Shared With Me",
-                value: 0,
-                color: "text-amber-400",
-                bg: "bg-amber-500/10 border-amber-500/20",
-              },
-              {
-                label: "Starred",
-                value: 0,
-                color: "text-emerald-400",
-                bg: "bg-emerald-500/10 border-emerald-500/20",
-              },
-            ].map(({ label, value, color, bg }) => (
-              <div key={label} className={`rounded-xl border p-4 ${bg}`}>
-                <div className={`text-2xl font-bold ${color} mb-0.5`}>
-                  {value}
-                </div>
-                <div className="text-xs text-slate-500">{label}</div>
-              </div>
-            ))}
-          </div> */}
-
           {/* Table */}
           <div className="bg-slate-900 rounded-2xl border border-slate-800/60 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/60">
@@ -350,19 +345,21 @@ export function DashboardPage({ showToast }) {
                                         fill={doc.starred ? "currentColor" : "none"}
                                     />
                                 </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleShare(doc);
-                                  }}
-                                  className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-400/10 transition-all"
-                                  title="Share"
-                                >
-                                  <Share2 size={15} />
-                                </button>
+                                  {doc.currentUserPermission && doc.currentUserPermission.toUpperCase() !== "VIEW" && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShareDoc(doc);
+                                    }}
+                                    className="p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-400/10 transition-all"
+                                    title="Share"
+                                  >
+                                    <Share2 size={15} /> 
+                                  </button>
+                                )}
                                 <button
                                   onClick={(e) =>
-                                    e.stopPropagation()
+                                    handleDownload(e, doc.id, doc.name)
                                   }
                                   className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all"
                                   title="Download"

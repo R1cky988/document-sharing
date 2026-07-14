@@ -52,6 +52,38 @@ export const uploadDocument = async (file) => {
   return response.data;
 };
 
+export const shareDocument = async (docId, email) => {
+  const response = await api.post(`/documents/${docId}/share`, {
+    email: email
+  });
+  
+  return response.data; 
+};
+
+export const getDocumentPermissions = async (docId) => {
+  const response = await api.get(`/documents/${docId}/permissions`, {
+    params: { size: 100 } 
+  });
+  return response.data;
+};
+
+export const generateShareLink = async (docId, shareType) => {
+  const response = await api.post(`/shared/${docId}/generate`, null, {
+    params: {
+      shareType: shareType.toUpperCase()
+    }
+  });
+  
+  return response.data; 
+};
+
+export const revokeDocumentPermission = async (docId, email) => {
+  const response = await api.delete(`/documents/${docId}/permissions`, {
+    params: { email } 
+  });
+  return response.data;
+};
+
 export const deleteDocument = async (id) => {
   const res = await api.delete(`/documents/${id}`);
   return res.data;
@@ -60,6 +92,13 @@ export const deleteDocument = async (id) => {
 export const removeMyPermission = async (id) => {
   const res = await api.delete(`/documents/${id}/permission`);
   return res.data;
+};
+
+export const downloadDocument = async (docId) => {
+  const response = await api.get(`documents/${docId}/download`, {
+    responseType: "blob", 
+  });
+  return response; 
 };
 
 export const formatSize = (bytes) => {

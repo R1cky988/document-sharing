@@ -408,10 +408,10 @@ export function AccountSettingsPage({ user, showToast }) {
             </button>
           </div>
 
-          {/* Danger Zone */}
+          {/* Delete Account */}
           <div className="bg-slate-900 rounded-2xl border border-red-500/20 p-6">
             <h2 className="text-sm font-semibold text-red-400 mb-1">
-              Danger Zone
+              Delete Account
             </h2>
             <p className="text-xs text-slate-500 mb-4">
               Permanently delete your account and all associated data.

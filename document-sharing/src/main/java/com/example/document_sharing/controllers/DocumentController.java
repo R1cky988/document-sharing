@@ -166,4 +166,17 @@ public class DocumentController {
         documentService.removeMyPermission(id);
         return ResponseEntity.ok().build();
     }
+
+    @DeleteMapping("/{id}/permissions")
+    public ResponseEntity<?> revokePermission(
+            @PathVariable Long id,
+            @RequestParam String email
+    ) {
+        try {
+            authorizationService.deletePermission(id, email);
+            return ResponseEntity.ok("Permission revoked successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

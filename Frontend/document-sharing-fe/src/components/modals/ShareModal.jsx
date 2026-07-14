@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Mail,
@@ -11,6 +11,7 @@ import {
   Check,
 } from "lucide-react";
 import { FILE_ICONS, PERMISSIONS } from "../../constants/fileConstants";
+import { shareDocument, getDocumentPermissions, generateShareLink, revokeDocumentPermission } from "../../services/documentService";
 
 export function ShareModal({ doc, onClose, showToast }) {
   const [email, setEmail] = useState("");
@@ -20,26 +21,56 @@ export function ShareModal({ doc, onClose, showToast }) {
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [invitees, setInvitees] = useState([
-    { email: "jordan.k@acme.io", role: "VIEW" },
-    { email: "sam.wu@acme.io", role: "VIEW" },
-  ]);
-
+  const [invitees, setInvitees] = useState([]);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  
   if (!doc) return null;
 
-  const generateLink = () => {
-    setGenerating(true);
-    const token =
-      crypto.randomUUID?.() ||
-      Math.random().toString(36).slice(2, 18) +
-        Math.random().toString(36).slice(2, 18);
-    setTimeout(() => {
-      setGeneratedLink(
-        `https://docshare.acme.io/share/${token}?type=${shareType}`
-      );
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        setLoadingPermissions(true);
+        const data = await getDocumentPermissions(doc.id);
+        
+        if (data && data.content) {
+          const viewersOnly = data.content
+            .filter((item) => item.permission === "VIEW")
+            .map((item) => ({
+              email: item.email,
+              role: "VIEW" 
+            }));
+          
+          setInvitees(viewersOnly);
+        }
+      } catch (error) {
+        showToast("Failed to load active viewers.");
+        console.error("Error fetching permissions:", error);
+      } finally {
+        setLoadingPermissions(false);
+      }
+    };
+
+    fetchPermissions();
+  }, [doc.id]);
+
+  const generateLink = async () => {
+    try {
+      setGenerating(true);
+
+      const linkOrToken = await generateShareLink(doc.id, shareType);
+      const fullUrl = linkOrToken.startsWith("http")
+        ? linkOrToken
+        : `http://localhost:8080/api/v1/shared/view/${linkOrToken}`;
+
+      setGeneratedLink(fullUrl);
+      showToast("Secure link generated successfully!");
+    } catch (error) {
+      console.error("Lỗi thực thi tại Client:", error);
+      const errorMsg = error.response?.data || "Failed to generate link";
+      showToast(errorMsg);
+    } finally {
       setGenerating(false);
-      showToast("Secure link generated!");
-    }, 700);
+    }
   };
 
   const copyLink = () => {
@@ -49,20 +80,53 @@ export function ShareModal({ doc, onClose, showToast }) {
     showToast("Link copied to clipboard!");
   };
 
-  const addInvitee = () => {
-    if (!email || invitees.find((i) => i.email === email)) return;
-    setInviting(true);
-    setTimeout(() => {
-      setInvitees((prev) => [...prev, { email, role }]);
+  const addInvitee = async () => {
+    if (!email) return;
+
+    try {
+      setInviting(true);
+
+      const result = await shareDocument(doc.id, email);
+
+      setInvitees((prev) => [
+        ...prev,
+        {
+          email: email,
+          role: "VIEW", 
+        },
+      ]);
+
       setEmail("");
+
+      const successMsg = typeof result === "string" ? result : "Document shared successfully!";
+      showToast(successMsg);
+
+    } catch (error) {
+      const errorMsg = error.response?.data || "Failed to share document";
+      showToast(errorMsg);
+    } finally {
       setInviting(false);
-      showToast(`Invite sent to ${email}`);
-    }, 500);
+    }
   };
 
-  const removeInvitee = (em) =>
-    setInvitees((prev) => prev.filter((i) => i.email !== em));
+  const removeInvitee = async (targetEmail) => {
+    const isConfirmed = window.confirm(
+      `Bạn có chắc chắn muốn xóa quyền truy cập của ${targetEmail} không?`
+    );
 
+    if (!isConfirmed) return;
+
+    try {
+      await revokeDocumentPermission(doc.id, targetEmail);
+      
+      setInvitees((prev) => prev.filter((i) => i.email !== targetEmail));
+      
+      showToast("Đã thu hồi quyền truy cập thành công!");
+    } catch (error) {
+      console.error("Error revoking permission:", error);
+      showToast(error.response?.data || "Không thể thu hồi quyền truy cập");
+    }
+  };
   const fi = FILE_ICONS[doc.contentType] || FILE_ICONS.OTHER;
 
   return (

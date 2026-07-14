@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 public class PermissionResponse {
     public Long userId;
 
+    public String email;
+
     public String userName;
 
     public Long documentId;
