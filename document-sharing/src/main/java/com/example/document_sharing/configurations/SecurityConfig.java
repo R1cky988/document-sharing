@@ -40,8 +40,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/users/**").permitAll()
+                        .requestMatchers("/api/v1/users/register").permitAll()
+                        .requestMatchers("/api/v1/users/login").permitAll()
                         .requestMatchers("/api/v1/shared/view/**").permitAll()
+                        .requestMatchers("/api/v1/users/forgot-password", "/api/v1/users/reset-password").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
