@@ -41,6 +41,13 @@ export const changePassword = async (passwordData) => {
   return response.data;
 };
 
+export const getRecentViewedDocuments = async (page = 0, size = 15) => {
+  const response = await api.get("/users/recent", {
+    params: { page, size }
+  });
+  return response.data; 
+};
+
 export const deleteAccount = async () => {
   const response = await api.delete("/users/me");
   return response.data;

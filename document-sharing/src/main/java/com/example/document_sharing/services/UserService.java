@@ -5,12 +5,23 @@ import com.example.document_sharing.dtos.request.LoginDTO;
 import com.example.document_sharing.dtos.request.RegisterDTO;
 import com.example.document_sharing.dtos.request.UpdateProfileDTO;
 import com.example.document_sharing.dtos.response.AuthenticationResponse;
+import com.example.document_sharing.dtos.response.RecentDocumentResponse;
+import com.example.document_sharing.models.RecentDocument;
+import com.example.document_sharing.models.ResetPasswordToken;
 import com.example.document_sharing.models.Role;
 import com.example.document_sharing.models.User;
+import com.example.document_sharing.repositories.PasswordResetTokenRepository;
+import com.example.document_sharing.repositories.RecentDocumentRepository;
 import com.example.document_sharing.repositories.RoleRepository;
 import com.example.document_sharing.repositories.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +30,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 
 @Service
@@ -28,9 +41,12 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final RecentDocumentRepository recentDocumentRepository;
+    private final AuthenticationManager authenticationManager;
+    private final JavaMailSender javaMailSender;
     private final MinioService minioService;
     private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
 
     public AuthenticationResponse register(RegisterDTO registerDTO) throws DataIntegrityViolationException {
         String email = registerDTO.getEmail();
@@ -186,6 +202,66 @@ public class UserService {
         }
 
         return minioService.download(avatarPath);
+    }
+
+    @Transactional
+    public void createPasswordResetToken(String email){
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(()-> new RuntimeException("Cannot find user"));
+
+        passwordResetTokenRepository.deleteByUser(user);
+        passwordResetTokenRepository.flush();
+
+        String token = UUID.randomUUID().toString();
+        ResetPasswordToken resetPasswordToken = ResetPasswordToken.builder()
+                .token(token)
+                .user(user)
+                .expirationDate(LocalDateTime.now().plusMinutes(15))
+                .build();
+        passwordResetTokenRepository.save(resetPasswordToken);
+        String resetLink = "http://localhost:5173/reset-password?token=" + token;
+        sendMail(user.getEmail(), resetLink);
+    }
+
+    public void sendMail(String recipientEmail, String link){
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(recipientEmail);
+        message.setSubject("Yêu cầu đặt lại mật khẩu");
+        message.setText("Bạn đã yêu cầu đặt lại mật khẩu.\n\n"
+                + "Vui lòng click vào đường dẫn dưới đây để đặt lại mật khẩu của bạn (Đường dẫn có hiệu lực trong 15 phút):\n"
+                + link + "\n\n"
+                + "Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.");
+        javaMailSender.send(message);
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        ResetPasswordToken resetToken = passwordResetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Token đặt lại mật khẩu không hợp lệ"));
+
+        if (resetToken.isExpired()) {
+            passwordResetTokenRepository.delete(resetToken);
+            throw new RuntimeException("Đường dẫn khôi phục mật khẩu đã hết hạn");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        passwordResetTokenRepository.delete(resetToken);
+    }
+
+    public Page<RecentDocumentResponse> getRecentViewedDocuments(int page, int size) {
+        User currentUser = getCurrentUser();
+        Pageable pageable = PageRequest.of(page, size);
+        Page<RecentDocument> recentPage = recentDocumentRepository.findByUserOrderByViewedAtDesc(currentUser, pageable);
+        return recentPage.map(recent -> new RecentDocumentResponse(
+                recent.getDocument().getId(),
+                recent.getDocument().getOriginalName(),
+                recent.getDocument().getContentType(),
+                recent.getViewedAt(),
+                recent.getUser().getName()
+        ));
     }
 
 }

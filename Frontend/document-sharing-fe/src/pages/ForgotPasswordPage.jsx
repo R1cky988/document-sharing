@@ -6,8 +6,9 @@ import {
   FolderOpen,
   ArrowLeft,
 } from "lucide-react";
+import { forgotPassword } from "../services/authService"; 
 
-export function ForgotPasswordPage() {
+export function ForgotPasswordPage({ showToast }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -26,20 +27,34 @@ export function ForgotPasswordPage() {
     return true;
   };
 
-  const handleSubmit = () => {
-    setError("");
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    
     if (!validate()) return;
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const message = await forgotPassword(email);
+      
+      if (showToast) {
+        showToast(message, "success");
+      }
       setSubmitted(true);
-      // In a real app, this would send an email with a reset link
-      // For now, we'll show the success message
+
       setTimeout(() => {
         navigate("/login");
-      }, 3000);
-    }, 900);
+      }, 5000);
+
+    } catch (error) {
+      console.error("Lỗi gửi mail recovery:", error);
+      if (showToast) {
+        showToast(error.response?.data || "Có lỗi xảy ra, vui lòng thử lại.", "error");
+      } else {
+        setError(error.response?.data || "Có lỗi xảy ra, vui lòng thử lại.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -94,7 +109,7 @@ export function ForgotPasswordPage() {
 
           {!submitted ? (
             <>
-              <div className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="text-xs font-medium text-slate-400 mb-1.5 block">
                     Email Address
@@ -106,7 +121,6 @@ export function ForgotPasswordPage() {
                       setEmail(e.target.value);
                       setError("");
                     }}
-                    onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                     placeholder="you@company.com"
                     className={`w-full bg-slate-800/60 border rounded-xl px-4 py-2.5 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:bg-slate-800 transition-all ${
                       error
@@ -121,22 +135,22 @@ export function ForgotPasswordPage() {
                     </p>
                   )}
                 </div>
-              </div>
 
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="w-full mt-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-lg shadow-violet-500/20"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Sending reset link…
-                  </span>
-                ) : (
-                  "Send Reset Link"
-                )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full mt-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm transition-all disabled:opacity-60 shadow-lg shadow-violet-500/20"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Sending reset link…
+                    </span>
+                  ) : (
+                    "Send Reset Link"
+                  )}
+                </button>
+              </form>
 
               <div className="text-center mt-4">
                 <button
@@ -165,8 +179,8 @@ export function ForgotPasswordPage() {
                 </p>
               </div>
               <div className="mt-6 w-full pt-6 border-t border-slate-800">
-                <p className="text-xs text-slate-600 text-center mb-3">
-                  Returning to login in a few seconds...
+                <p className="text-xs text-slate-600 text-center mb-3 animate-pulse">
+                  Returning to login page in 5 seconds...
                 </p>
               </div>
             </div>

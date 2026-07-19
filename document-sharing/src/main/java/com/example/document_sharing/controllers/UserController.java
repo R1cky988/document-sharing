@@ -1,18 +1,15 @@
 package com.example.document_sharing.controllers;
 
-import com.example.document_sharing.dtos.request.ChangePasswordDTO;
-import com.example.document_sharing.dtos.request.LoginDTO;
-import com.example.document_sharing.dtos.request.RegisterDTO;
-import com.example.document_sharing.dtos.request.UpdateProfileDTO;
+import com.example.document_sharing.dtos.request.*;
 import com.example.document_sharing.dtos.response.AuthenticationResponse;
+import com.example.document_sharing.dtos.response.RecentDocumentResponse;
 import com.example.document_sharing.models.User;
+import com.example.document_sharing.repositories.RecentDocumentRepository;
 import com.example.document_sharing.services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -165,6 +162,40 @@ public class UserController {
                     .body(resource);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgetPassword(@RequestBody Map<String, String> request){
+        String email = request.get("email");
+        try {
+            userService.createPasswordResetToken(email);
+            return ResponseEntity.ok("Vui lòng kiểm tra email của bạn");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordDTO dto){
+        try {
+            userService.resetPassword(dto.getToken(), dto.getNewPassword());
+            return ResponseEntity.ok("Đặt lại mật khẩu thành công");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/recent")
+    public ResponseEntity<?> getRecentViewedDocuments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int size) {
+        try {
+            Page<RecentDocumentResponse> response = userService.getRecentViewedDocuments(page, size);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

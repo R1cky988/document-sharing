@@ -33,3 +33,16 @@ export const getMyAvatar = async () => {
 
   return response.data;
 };
+
+export const forgotPassword = async (email) => {
+  const response = await api.post("/users/forgot-password", { email });
+  return response.data;
+}
+
+export const resetPassword = async ({ token, newPassword }) => {
+  const response = await api.post("/users/reset-password", {
+    token,
+    newPassword,
+  });
+  return response.data;
+};
