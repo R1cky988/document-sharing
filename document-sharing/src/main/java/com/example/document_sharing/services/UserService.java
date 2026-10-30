@@ -139,6 +139,7 @@ public class UserService {
         userRepository.deleteById(currentUser.getId());
     }
 
+    @Transactional
     public AuthenticationResponse updateProfile(UpdateProfileDTO dto) {
         User currentUser = getCurrentUser();
 
@@ -161,6 +162,7 @@ public class UserService {
                 .build();
     }
 
+    @Transactional
     public void changePassword(ChangePasswordDTO dto) {
         User currentUser = getCurrentUser();
 
